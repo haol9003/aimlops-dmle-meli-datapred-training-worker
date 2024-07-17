@@ -1,0 +1,22 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: 0.4.3
+_src_path: git@github.com:niq-enterprise/ainn-python-template.git
+add_publisher: false
+author_email: olga.hazanas@nielseniq.com
+author_fullname: Olga-Hazanas_niq
+container_registry_dev: elizadevacreastus2.azurecr.io
+container_registry_prod: elizaprodacreastus2.azurecr.io
+copyright_date: '2024'
+copyright_license: NIQ
+package_cli_name: dmle_meli_datapred_training_worker
+package_distribution_name: dmle-meli-datapred-training-worker
+package_import_name: dmle_meli_datapred_training_worker
+pipeline_name: pipeline_test
+project_description: Data preparation and training worker for Meli
+project_name: dmle-meli-datapred-training-worker
+repository_name: aimlops-dmle-meli-datapred-training-worker
+repository_namespace: niq-enterprise
+requires_python: '>=3.9,<3.11'
+use_cis_runtime: true
+use_nvidia_cuda: false
+worker_type: azml_pipeline

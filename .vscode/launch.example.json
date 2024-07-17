@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Debug Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "purpose": ["debug-test"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false,
+            "presentation": {
+                "hidden": true
+            }
+        },
+        {
+            "name": "Python: dmle_meli_datapred_training_worker",
+            "type": "debugpy",
+            "module": "dmle_meli_datapred_training_worker.worker.cli",
+            "request": "launch",
+            "justMyCode": false,
+            "args": []
+        }
+    ]
+}

@@ -1,0 +1,4 @@
+services:
+  devel:
+    ports:
+      - ${COMPOSE_SSH_PORT}:22

@@ -1,0 +1,6 @@
+{
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "jupyter.debugJustMyCode": false,
+    "python.testing.pytestArgs": ["-n=0", "--maxfail=10"]
+}

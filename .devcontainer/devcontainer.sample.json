@@ -1,0 +1,25 @@
+// For format details, see https://aka.ms/devcontainer.json.
+// For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.245.0/containers/docker-existing-docker-compose
+{
+	"name": "dmle-meli-datapred-training-worker",
+	"dockerComposeFile": [
+		"../docker-compose.yaml",
+		"docker-compose.yaml"
+	],
+	"service": "devel",
+    "runServices": [
+        "devel"
+    ],
+	"workspaceFolder": "/workspace/aimlops-dmle-meli-datapred-training-worker",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.vscode-pylance"
+			]
+		}
+	},
+	"postCreateCommand": "pdm run pre-commit install",
+	"remoteUser": "<your-user-name>"
+}

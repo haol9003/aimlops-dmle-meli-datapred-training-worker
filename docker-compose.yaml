@@ -1,0 +1,64 @@
+services:
+
+  worker:
+    image: ${DOCKER_REGISTRY}/dmle-meli-datapred-training-worker-worker:${DOCKER_TAG}
+    build:
+      context: .
+      target: testing
+      args:
+        CIS_APP: worker
+        CI: ${CI}
+        PYTHON_VERSION: '3.9'
+        DOCKER_REGISTRY: python
+        DOCKER_IMAGE_VARIANT: slim-bookworm
+        PDM_BUILD_SCM_VERSION: ${PROJECT_VERSION}
+        ARTIFACTORY_PYPI_USER: ${ARTIFACTORY_PYPI_USER}
+      secrets:
+        - artifactory_pypi_pass
+
+  pipeline_test:
+    image: ${DOCKER_REGISTRY}/dmle-meli-datapred-training-worker-pipeline_test:${DOCKER_TAG}
+    build:
+      context: .
+      target: testing
+      args:
+        CI: ${CI}
+        CIS_APP: pipeline_test
+        PYTHON_VERSION: '3.10'
+        DOCKER_REGISTRY: python
+        DOCKER_IMAGE_VARIANT: slim-bookworm
+        PDM_BUILD_SCM_VERSION: ${PROJECT_VERSION}
+        ARTIFACTORY_PYPI_USER: ${ARTIFACTORY_PYPI_USER}
+      secrets:
+        - artifactory_pypi_pass
+
+
+  devel:
+    image: ${DOCKER_REGISTRY}/dmle-meli-datapred-training-worker-${COMPOSE_PLATFORM}:${DOCKER_TAG}
+    ipc: host
+    build:
+      target: devel-${COMPOSE_PLATFORM}
+      context: .
+      args:
+        PDM_BUILD_SCM_VERSION: ${PROJECT_VERSION}
+        ARTIFACTORY_PYPI_USER: ${ARTIFACTORY_PYPI_USER}
+        USERNAME: ${COMPOSE_USER_NAME}
+        GROUPNAME: ${COMPOSE_GROUP_NAME}
+        USERUID: ${COMPOSE_USER_UID}
+        USERGID: ${COMPOSE_USER_GID}
+        USERSHELL: ${COMPOSE_USER_SHELL}
+      secrets:
+        - artifactory_pypi_pass
+    runtime: ${COMPOSE_RUNTIME}
+    restart: unless-stopped
+    volumes:
+      - "${COMPOSE_DATA_DIR}:/data"
+      - "${COMPOSE_CACHE_DIR}:/cache"
+      - "${COMPOSE_CODE_DIR}:/workspace/aimlops-dmle-meli-datapred-training-worker"
+      - "${COMPOSE_HOME_DIR}/${COMPOSE_USER_NAME}:/home/${COMPOSE_USER_NAME}"
+    environment:
+      HF_HOME: /cache
+
+secrets:
+  artifactory_pypi_pass:
+    environment: ARTIFACTORY_PYPI_PASS

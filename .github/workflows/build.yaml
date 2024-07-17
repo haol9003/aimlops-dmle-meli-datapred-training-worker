@@ -1,0 +1,175 @@
+name: Build & test python package
+
+on:
+  workflow_dispatch: null
+  pull_request: null
+  release:
+    types:
+      - created
+  push:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+  id-token: write
+  pages: write
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ ! (github.ref_name == 'main' || startsWith(github.ref_name, 'release/')) }}
+
+jobs:
+  setup:
+    name: Set up docker target and Pypi repository
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decide environment
+        id: decide
+        run: |
+          git config --global --add safe.directory $(pwd)
+          if [[ ${{ github.ref }} == refs/tags/* ]]; then
+            echo "target=testing" >> "$GITHUB_OUTPUT"
+            export VERSION=${{ github.ref_name }}
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            export VERSION=$(git describe --tags --abbrev=0 || echo "0.0.0")
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "target=testing" >> "$GITHUB_OUTPUT"
+          fi
+          export RELEASE_BRANCH=${{ github.event.release.target_commitish }}
+          export RELEASE_BRANCH="${RELEASE_BRANCH:-${{ github.ref_name }}}"
+          if [[ ${RELEASE_BRANCH} == main || ${RELEASE_BRANCH} == release/* || ${RELEASE_BRANCH} == refs/tags/* ]]; then
+            echo "acr=elizaprodacreastus2.azurecr.io" >> "$GITHUB_OUTPUT"
+            echo "pypi_repo=innovation-pypi-prod-ml-local" >> "$GITHUB_OUTPUT"
+            echo "environment=PROD" >> "$GITHUB_OUTPUT"
+            echo "Using PROD environment"
+          else
+            echo "acr=elizadevacreastus2.azurecr.io" >> "$GITHUB_OUTPUT"
+            echo "pypi_repo=innovation-pypi-nonprod-ml-local" >> "$GITHUB_OUTPUT"
+            echo "environment=NONPROD" >> "$GITHUB_OUTPUT"
+            echo "Using NONPROD environment"
+          fi
+    outputs:
+      acr: ${{ steps.decide.outputs.acr }}
+      target: ${{ steps.decide.outputs.target }}
+      version: ${{ steps.decide.outputs.version }}
+      pypi_repo: ${{ steps.decide.outputs.pypi_repo }}
+      environment: ${{ steps.decide.outputs.environment }}
+
+  credentials:
+    name: Retrieve credentials from the key vault
+    runs-on: self-hosted
+    container:
+      image: mcr.microsoft.com/azure-cli:2.46.0
+      env:
+        AZURE_CLIENT_ID: ${{ secrets.INNOVATION_NONPROD_APPID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.INNOVATION_NONPROD_PASSWORD }}
+        AZURE_TENANT_ID: ${{ secrets.INNOVATION_NONPROD_TENANT }}
+    steps:
+      - name: Fetch credentials
+        id: kv
+        uses: niq-actions/az-kv-management@1.1.1
+        with:
+          kv_name: INNOVATIONKVAUTOUS
+          type: get
+          summary: false
+          secretname: |
+            eliza-pypi-user
+            eliza-pypi-pass
+    outputs:
+      pypi_user: ${{ steps.kv.outputs.eliza-pypi-user }}
+      pypi_pass: ${{ steps.kv.outputs.eliza-pypi-pass }}
+
+
+  changes:
+    name: Detect changes in subpackages
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code 🛒
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Get changed files 📂
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            worker:
+              - src/dmle_meli_datapred_training_worker/worker/**
+            pipeline_test:
+              - src/dmle_meli_datapred_training_worker/pipeline_test/**
+    outputs:
+      worker: ${{ steps.filter.outputs.worker }}
+      pipeline_test: ${{ steps.filter.outputs.pipeline_test }}
+
+  build_worker:
+    name: Building and testing worker 🛠️
+    if: startsWith(github.ref, 'refs/tags/') || ${{ needs.changes.outputs.worker == 'true' }}
+    needs:
+      - setup
+      - credentials
+      - changes
+    uses: niq-actions/niq-build/.github/workflows/build.yml@v1.0.0
+    secrets: inherit
+    with:
+      image_name: dmle-meli-datapred-training-worker-worker
+      dev_acr: elizadevacreastus2.azurecr.io
+      prod_acr: elizaprodacreastus2.azurecr.io
+      push_image: True
+      wiz_feature_scan: false
+      service_principal: INNOVATION_NONPROD
+      wiz_username: WIZ_USERNAME
+      wiz_password: WIZ_PASSWORD
+      target: ${{ needs.setup.outputs.target }}
+      build-args: |-
+        CI=true
+        CIS_APP=worker
+        PYTHON_VERSION=3.9
+        DOCKER_REGISTRY=python
+        DOCKER_IMAGE_VARIANT=slim-bookworm
+        PDM_BUILD_SCM_VERSION=${{ needs.setup.outputs.version }}
+        ARTIFACTORY_PYPI_USER=${{ needs.credentials.outputs.pypi_user }}
+        ARTIFACTORY_PYPI_URL=https://artifactory.adlm.nielseniq.com/artifactory/api/pypi/${{ needs.setup.outputs.pypi_repo }}
+      secrets: |-
+        artifactory_pypi_pass=${{ needs.credentials.outputs.pypi_pass }}
+
+  build_pipeline_test:
+    name: Building and testing pipeline_test 🛠️
+    if: startsWith(github.ref, 'refs/tags/') || ${{ needs.changes.outputs.pipeline_test == 'true' }}
+    needs:
+      - setup
+      - credentials
+      - changes
+    uses: niq-actions/niq-build/.github/workflows/build.yml@v1.0.0
+    secrets: inherit
+    with:
+      image_name: dmle-meli-datapred-training-worker-pipeline_test
+      dev_acr: elizadevacreastus2.azurecr.io
+      prod_acr: elizaprodacreastus2.azurecr.io
+      push_image: True
+      wiz_feature_scan: false
+      service_principal: INNOVATION_NONPROD
+      wiz_username: WIZ_USERNAME
+      wiz_password: WIZ_PASSWORD
+      target: ${{ needs.setup.outputs.target }}
+      build-args: |-
+        CI=true
+        CIS_APP=pipeline_test
+        PYTHON_VERSION=3.9
+        DOCKER_REGISTRY=python
+        DOCKER_IMAGE_VARIANT=slim-bookworm
+        PDM_BUILD_SCM_VERSION=${{ needs.setup.outputs.version }}
+        ARTIFACTORY_PYPI_USER=${{ needs.credentials.outputs.pypi_user }}
+        ARTIFACTORY_PYPI_URL=https://artifactory.adlm.nielseniq.com/artifactory/api/pypi/${{ needs.setup.outputs.pypi_repo }}
+      secrets: |-
+        artifactory_pypi_pass=${{ needs.credentials.outputs.pypi_pass }}
+
+
+

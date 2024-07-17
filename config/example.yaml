@@ -1,0 +1,13 @@
+# use jsonargparse to build a CLI
+# This will instantiate all the components for you
+more_config: path/to/other/config.yaml
+base:
+  property1: 1
+  property2: 3 days, 2:0:0  # timedelta type is supported
+  objects:
+    - class_path: path.to.ClassWithoutArgs
+    - class_path: path.to.ClassWithArgs
+      init_args:
+        arg1: 1
+        arg2: foo
+        arg3: [1, 2, 3]
