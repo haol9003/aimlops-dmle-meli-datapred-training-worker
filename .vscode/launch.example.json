@@ -20,7 +20,7 @@
         {
             "name": "Python: dmle_meli_datapred_training_worker",
             "type": "debugpy",
-            "module": "dmle_meli_datapred_training_worker.worker.cli",
+            "module": "dmle_meli_datapred_training_worker.cli",
             "request": "launch",
             "justMyCode": false,
             "args": []

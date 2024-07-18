@@ -53,26 +53,15 @@ SHELL ["/bin/bash", "-c"]
 
 # Install as editable on the docker image
 FROM base as prod
-# Add a non-root user to run the container
-RUN addgroup --gid 7655 dmleuser && \
-    adduser --disabled-password --gecos '' --uid 7655 --gid 7655 dmleuser && \
-    adduser dmleuser sudo && \
-    echo -e "$(pdm venv activate ${PDM_IN_VENV})\n$(cat /home/dmleuser/.bashrc)" > /home/dmleuser/.bashrc && \
-    mkdir logs && \
-    chown -R dmleuser:dmleuser . && \
-    chmod -R 775 .
 
 # Copy the source code and local configuration
 COPY src src
 COPY config config
 # This is the version of the package
 ARG PDM_BUILD_SCM_VERSION
-# This is the CIS application to install (worker, pipeline, publisher, etc)
-# It is set on the main docker-compose.yaml of this repository
-ARG CIS_APP
-# Install application dependencies
+# Install the package itself
 RUN --mount=type=secret,id=artifactory_pypi_pass \
-    ./pdm.sh sync -G ${CIS_APP} && \
+    ./pdm.sh sync && \
     pdm cache clear
 
 FROM prod as testing
@@ -83,7 +72,7 @@ COPY tests tests
 RUN --mount=type=secret,id=artifactory_pypi_pass \
     if [ "${CI}" = "true" ]; then \
     ./pdm.sh sync --no-self -dG test && \
-    pdm run tests tests/${CIS_APP} && \
+    pdm run tests && \
     pdm cache clear ; \
     rm -rf tests config /root/.cache /tmp/* ; \
     fi
@@ -93,7 +82,6 @@ RUN --mount=type=secret,id=artifactory_pypi_pass \
 RUN echo -e "#!/bin/bash\nexec bash -l -c \"\$*\"\n" > /etc/docker-entrypoint.sh
 RUN chmod +x /etc/docker-entrypoint.sh
 ENTRYPOINT ["/etc/docker-entrypoint.sh"]
-USER dmleuser
 CMD dmle_meli_datapred_training_worker
 
 

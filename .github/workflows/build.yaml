@@ -88,88 +88,78 @@ jobs:
       pypi_pass: ${{ steps.kv.outputs.eliza-pypi-pass }}
 
 
-  changes:
-    name: Detect changes in subpackages
+  build_python:
+    name: Building and testing python 🛠️
+    needs:
+      - setup
+      - credentials
+    uses: niq-actions/niq-build/.github/workflows/build.yml@v1.0.0
+    secrets: inherit
+    with:
+      image_name: dmle-meli-datapred-training-worker
+      dev_acr: elizadevacreastus2.azurecr.io
+      prod_acr: elizaprodacreastus2.azurecr.io
+      push_image: True
+      wiz_feature_scan: false
+      service_principal: INNOVATION_NONPROD
+      wiz_username: WIZ_USERNAME
+      wiz_password: WIZ_PASSWORD
+      target: ${{ needs.setup.outputs.target }}
+      build-args: |-
+        CI=true
+        PYTHON_VERSION=3.9
+        DOCKER_REGISTRY=python
+        DOCKER_IMAGE_VARIANT=slim-bookworm
+        PDM_BUILD_SCM_VERSION=${{ needs.setup.outputs.version }}
+        ARTIFACTORY_PYPI_USER=${{ needs.credentials.outputs.pypi_user }}
+        ARTIFACTORY_PYPI_URL=https://artifactory.adlm.nielseniq.com/artifactory/api/pypi/${{ needs.setup.outputs.pypi_repo }}
+      secrets: |-
+        artifactory_pypi_pass=${{ needs.credentials.outputs.pypi_pass }}
+
+
+
+  azureml:
+    name: Build the container image for AzureML
+    if: startsWith(github.ref_name, 'azml')
     runs-on: self-hosted
+    needs:
+      - credentials
+      - setup
+      - build_python
     steps:
-      - name: Checkout code 🛒
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v2
+      - name: docker login
+        uses: niq-actions/docker-login@v2
         with:
-          fetch-depth: 0
-      - name: Get changed files 📂
-        id: filter
-        uses: dorny/paths-filter@v3
+          target_registry: ${{ needs.setup.outputs.acr }}
+          username: ${{ secrets.INNOVATION_NONPROD_APPID }}
+          password: ${{ secrets.INNOVATION_NONPROD_PASSWORD }}
+      - uses: actions/cache@v3
         with:
-          filters: |
-            worker:
-              - src/dmle_meli_datapred_training_worker/worker/**
-            pipeline_test:
-              - src/dmle_meli_datapred_training_worker/pipeline_test/**
-    outputs:
-      worker: ${{ steps.filter.outputs.worker }}
-      pipeline_test: ${{ steps.filter.outputs.pipeline_test }}
-
-  build_worker:
-    name: Building and testing worker 🛠️
-    if: startsWith(github.ref, 'refs/tags/') || ${{ needs.changes.outputs.worker == 'true' }}
-    needs:
-      - setup
-      - credentials
-      - changes
-    uses: niq-actions/niq-build/.github/workflows/build.yml@v1.0.0
-    secrets: inherit
-    with:
-      image_name: dmle-meli-datapred-training-worker-worker
-      dev_acr: elizadevacreastus2.azurecr.io
-      prod_acr: elizaprodacreastus2.azurecr.io
-      push_image: True
-      wiz_feature_scan: false
-      service_principal: INNOVATION_NONPROD
-      wiz_username: WIZ_USERNAME
-      wiz_password: WIZ_PASSWORD
-      target: ${{ needs.setup.outputs.target }}
-      build-args: |-
-        CI=true
-        CIS_APP=worker
-        PYTHON_VERSION=3.9
-        DOCKER_REGISTRY=python
-        DOCKER_IMAGE_VARIANT=slim-bookworm
-        PDM_BUILD_SCM_VERSION=${{ needs.setup.outputs.version }}
-        ARTIFACTORY_PYPI_USER=${{ needs.credentials.outputs.pypi_user }}
-        ARTIFACTORY_PYPI_URL=https://artifactory.adlm.nielseniq.com/artifactory/api/pypi/${{ needs.setup.outputs.pypi_repo }}
-      secrets: |-
-        artifactory_pypi_pass=${{ needs.credentials.outputs.pypi_pass }}
-
-  build_pipeline_test:
-    name: Building and testing pipeline_test 🛠️
-    if: startsWith(github.ref, 'refs/tags/') || ${{ needs.changes.outputs.pipeline_test == 'true' }}
-    needs:
-      - setup
-      - credentials
-      - changes
-    uses: niq-actions/niq-build/.github/workflows/build.yml@v1.0.0
-    secrets: inherit
-    with:
-      image_name: dmle-meli-datapred-training-worker-pipeline_test
-      dev_acr: elizadevacreastus2.azurecr.io
-      prod_acr: elizaprodacreastus2.azurecr.io
-      push_image: True
-      wiz_feature_scan: false
-      service_principal: INNOVATION_NONPROD
-      wiz_username: WIZ_USERNAME
-      wiz_password: WIZ_PASSWORD
-      target: ${{ needs.setup.outputs.target }}
-      build-args: |-
-        CI=true
-        CIS_APP=pipeline_test
-        PYTHON_VERSION=3.9
-        DOCKER_REGISTRY=python
-        DOCKER_IMAGE_VARIANT=slim-bookworm
-        PDM_BUILD_SCM_VERSION=${{ needs.setup.outputs.version }}
-        ARTIFACTORY_PYPI_USER=${{ needs.credentials.outputs.pypi_user }}
-        ARTIFACTORY_PYPI_URL=https://artifactory.adlm.nielseniq.com/artifactory/api/pypi/${{ needs.setup.outputs.pypi_repo }}
-      secrets: |-
-        artifactory_pypi_pass=${{ needs.credentials.outputs.pypi_pass }}
-
-
-
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-buildx-
+      - id: build
+        uses: docker/build-push-action@v4
+        with:
+          tags: ${{ needs.setup.outputs.acr }}/dmle-meli-datapred-training-worker:${{ github.ref_name }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          load: true
+          push: true
+          file: Dockerfile
+          target: prod
+          build-args: |-
+            CI=true
+            PYTHON_VERSION=3.9
+            DOCKER_REGISTRY=python
+            DOCKER_IMAGE_VARIANT=slim-bookworm
+            PDM_BUILD_SCM_VERSION=${{ needs.setup.outputs.version }}
+            ARTIFACTORY_PYPI_USER=${{ needs.credentials.outputs.pypi_user }}
+            ARTIFACTORY_PYPI_URL=https://artifactory.adlm.nielseniq.com/artifactory/api/pypi/${{ needs.setup.outputs.pypi_repo }}
+          secrets: |-
+            artifactory_pypi_pass=${{ needs.credentials.outputs.pypi_pass }}
+      - if: always()
+        continue-on-error: true
+        run: docker logout || true

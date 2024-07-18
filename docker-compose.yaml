@@ -1,12 +1,11 @@
 services:
 
-  worker:
-    image: ${DOCKER_REGISTRY}/dmle-meli-datapred-training-worker-worker:${DOCKER_TAG}
+  prod:
+    image: ${DOCKER_REGISTRY}/dmle-meli-datapred-training-worker:${DOCKER_TAG}
     build:
       context: .
       target: testing
       args:
-        CIS_APP: worker
         CI: ${CI}
         PYTHON_VERSION: '3.9'
         DOCKER_REGISTRY: python
@@ -16,21 +15,6 @@ services:
       secrets:
         - artifactory_pypi_pass
 
-  pipeline_test:
-    image: ${DOCKER_REGISTRY}/dmle-meli-datapred-training-worker-pipeline_test:${DOCKER_TAG}
-    build:
-      context: .
-      target: testing
-      args:
-        CI: ${CI}
-        CIS_APP: pipeline_test
-        PYTHON_VERSION: '3.10'
-        DOCKER_REGISTRY: python
-        DOCKER_IMAGE_VARIANT: slim-bookworm
-        PDM_BUILD_SCM_VERSION: ${PROJECT_VERSION}
-        ARTIFACTORY_PYPI_USER: ${ARTIFACTORY_PYPI_USER}
-      secrets:
-        - artifactory_pypi_pass
 
 
   devel:

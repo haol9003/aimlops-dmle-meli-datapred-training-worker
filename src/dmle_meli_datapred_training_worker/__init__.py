@@ -1,6 +1,6 @@
 """This is the root of the dmle-meli-datapred-training-worker package.
 
-Data preparation and training worker for Meli
+Datapred and Training worker for Meli
 
 Developed by Olga-Hazanas_niq <olga.hazanas@nielseniq.com>
 

@@ -1,6 +1,6 @@
 [project]
 name = "dmle-meli-datapred-training-worker"
-description = "Data preparation and training worker for Meli"
+description = "Datapred and Training worker for Meli"
 license = {file = "LICENSE"}
 readme = "README.md"
 keywords = [
@@ -30,15 +30,6 @@ Repository = "https://github.com/niq-enterprise/aimlops-dmle-meli-datapred-train
 Homepage = "https://github.com/niq-enterprise/aimlops-dmle-meli-datapred-training-worker"
 
 [project.optional-dependencies]
-worker = [
-    # required dependencies to run the worker in CIS
-    "cis-runtime[pipelines]>=0.1.0",
-]
-pipeline_test = [
-    # Add dependencies required only to run your pipeline commands in AzureML
-    # E.g. Add eliza-data with `pdm add --no-sync -G pipeline_test eliza-data`
-    # You can add more pipelines just copying and renaming the same structure
-]
 
 [tool.pdm.dev-dependencies]
 test = [
@@ -56,8 +47,7 @@ requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [project.scripts]
-dmle_meli_datapred_training_worker_worker = "dmle_meli_datapred_training_worker.worker.cli:main"
-dmle_meli_datapred_training_worker = "dmle_meli_datapred_training_worker.pipeline_test.cli:main"
+dmle_meli_datapred_training_worker = "dmle_meli_datapred_training_worker.cli:main"
 
 [tool.pdm.version]
 source = "scm"

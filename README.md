@@ -1,6 +1,6 @@
 # dmle-meli-datapred-training-worker
 
-Data preparation and training worker for Meli
+Datapred and Training worker for Meli
 
 ## Requirements
 
